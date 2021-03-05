@@ -2,7 +2,7 @@
 
 //Place any variables needed here from umalloc.c as an extern.
 extern memory_block_t *free_head;
-extern num_free_blocks;
+extern long num_free_blocks;
 
 /*
  * check_heap -  used to check that the heap is still in a consistent state.
@@ -41,7 +41,7 @@ int check_heap() {
         cur = cur->next;
     }
     // exexute 1. and 2. failure confirmation
-    if (!all_marked_free || free_blocks_count != num_free blocks) {
+    if (!all_marked_free || free_blocks_count != num_free_blocks) {
         return EXIT_FAILURE;
     }
 

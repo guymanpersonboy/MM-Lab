@@ -130,6 +130,8 @@ memory_block_t *coalesce(memory_block_t *block) {
  * along with allocating initial memory.
  */
 int uinit() {
+    free_head = (memory_block_t *)malloc(sizeof(memory_block_t));
+    num_free_blocks = 0;
 
 
     return -1;
