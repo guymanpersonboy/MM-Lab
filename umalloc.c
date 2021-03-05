@@ -104,7 +104,8 @@ memory_block_t *find(size_t size) {
  * extend - extends the heap if more memory is required.
  */
 memory_block_t *extend(size_t size) {
-    // TODO csbrk?
+    csbrk(size);
+    
     return NULL;
 }
 

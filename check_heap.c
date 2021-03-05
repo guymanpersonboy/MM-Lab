@@ -36,8 +36,9 @@ int check_heap() {
             return EXIT_FAILURE;
         }
 
+        // TODO check 9.
 
-
+        prev = cur;
         cur = cur->next;
     }
     // exexute 1. and 2. failure confirmation
