@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-const char author[] = ANSI_BOLD ANSI_COLOR_RED "REPLACE THIS WITH YOUR NAME AND UT EID" ANSI_RESET;
+const char author[] = ANSI_BOLD ANSI_COLOR_RED "Christopher Carrasco cc66496" ANSI_RESET;
 
 /*
  * The following helpers can be used to interact with the memory_block_t
@@ -13,6 +13,8 @@ const char author[] = ANSI_BOLD ANSI_COLOR_RED "REPLACE THIS WITH YOUR NAME AND 
 
 // A sample pointer to the start of the free list.
 memory_block_t *free_head;
+// keeps count of the number of free blocks that should be in the free list
+long num_free_blocks;
 
 /*
  * is_allocated - returns true if a block is marked as allocated.
@@ -93,6 +95,8 @@ memory_block_t *get_block(void *payload) {
  * find - finds a free block that can satisfy the umalloc request.
  */
 memory_block_t *find(size_t size) {
+    // TODO best fit?
+    // TODO first fit?
     return NULL;
 }
 
@@ -100,6 +104,7 @@ memory_block_t *find(size_t size) {
  * extend - extends the heap if more memory is required.
  */
 memory_block_t *extend(size_t size) {
+    // TODO csbrk?
     return NULL;
 }
 
@@ -114,17 +119,20 @@ memory_block_t *split(memory_block_t *block, size_t size) {
  * coalesce - coalesces a free memory block with neighbors.
  */
 memory_block_t *coalesce(memory_block_t *block) {
+    // TODO coalesce immedietaly?
     return NULL;
 }
 
 
 
 /*
- * uinit - Used initialize metadata required to manage the heap
+ * uinit - Used to initialize metadata required to manage the heap
  * along with allocating initial memory.
  */
 int uinit() {
-    return 0;
+
+
+    return -1;
 }
 
 /*
@@ -139,4 +147,5 @@ void *umalloc(size_t size) {
  * by a previous call to malloc.
  */
 void ufree(void *ptr) {
+
 }
