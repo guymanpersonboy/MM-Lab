@@ -1,6 +1,6 @@
 # Makefile
 CC = gcc
-CFLAGS = -Wall -O2 -Werror -ggdb -fPIC
+CFLAGS = -Wall -O2 -Werror -ggdb
 
 all: runner performance gprof_performance
 support.o: support.c support.h
@@ -11,32 +11,22 @@ csbrk_tracked.o: csbrk.c csbrk.h
 umalloc.o: umalloc.c umalloc.h
 check_heap.o: umalloc.c umalloc.h
 
+runner: runner.c csbrk_tracked.o umalloc.o check_heap.o err_handler.o support.o
+	$(CC) $(CFLAGS) -o runner runner.c  umalloc.h csbrk_tracked.o umalloc.o check_heap.o err_handler.o support.o
 
-libmemory.so: csbrk.o umalloc.o
-	gcc -shared -o libmemory.so csbrk.o umalloc.o
-
-libmemory_tracked.so: csbrk_tracked.o umalloc.o check_heap.o
-	gcc -shared -o libmemory_tracked.so csbrk_tracked.o umalloc.o check_heap.o
-
-runner: runner.c libmemory_tracked.so err_handler.o support.o
-	$(CC) $(CFLAGS) -Wl,-rpath='.' -o runner runner.c -L. umalloc.h -lmemory_tracked err_handler.o support.o
-
-performance: performance.c libmemory.so support.o
-	$(CC) $(CFLAGS) -Wl,-rpath='.' -o performance performance.c -L. umalloc.h -lmemory err_handler.o support.o
+performance: performance.c csbrk.o  umalloc.o support.o
+	$(CC) $(CFLAGS) -o performance performance.c umalloc.h csbrk.o umalloc.o err_handler.o support.o
 
 
 # GPROF
 gprof_csbrk.o: csbrk.c csbrk.h
-	$(CC) -O0 -c -g -pg -fPIC -o gprof_csbrk.o csbrk.c 
+	$(CC) -O0 -c -fprofile-arcs -g -pg -o gprof_csbrk.o csbrk.c 
 
 gprof_umalloc.o: umalloc.c umalloc.h
-	$(CC) -O0 -c -g -pg -fPIC -o gprof_umalloc.o umalloc.c	
+	$(CC) -O0 -c -fprofile-arcs -g -pg -o gprof_umalloc.o umalloc.c	
 
-libmemory_gprof.so: gprof_csbrk.o gprof_umalloc.o
-	gcc -shared -o libmemory_gprof.so gprof_csbrk.o gprof_umalloc.o
-
-gprof_performance: performance.c libmemory_gprof.so support.o
-	$(CC) -Wl,-rpath='.' -O0 -g -pg -o gprof_performance performance.c -L. umalloc.h -lmemory_gprof err_handler.o support.o
+gprof_performance: performance.c gprof_umalloc.o support.o gprof_csbrk.o
+	$(CC) -O0 -fprofile-arcs -g -pg -o gprof_performance performance.c umalloc.h gprof_umalloc.o gprof_csbrk.o err_handler.o support.o
 
 clean:
-	rm -f *.o *.so runner gprof_performance performance
+	rm -f *.o *.so runner gprof_performance performance *.gcda gmon.out
