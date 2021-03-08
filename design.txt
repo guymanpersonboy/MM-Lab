@@ -2,15 +2,24 @@ FIll out this document with the intended design. This design is not final, and c
 be updated if you run into problems completing the project
 
 How will the heap be structured?
+ - A best fit placement
+ - double each csbrk call
 
 How will umalloc be implemented?
+ - Splitting
 
 How will ufree be implemented?
+ - Immediate coalescing
 
 What checks are putting into check_heap?
-...enough
+1. check if every block in the free list is marked as free?
+2. Is every free block on the free list?
+6. Do any allocated blocks overlap with each other?
+7. Do any allocated blocks overlap with a free block?
+TODO check 9.
 
 Are you making any changes to the memory_block_t struct?
+ - Not sure yet
 
 Once this project is finsihed, these answers will finalized in the write up.
 
