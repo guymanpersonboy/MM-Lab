@@ -11,13 +11,11 @@ extern unsigned long long num_free_blocks;
  * return code. Asserts are also a useful tool here.
  */
 int check_heap() {
-    memory_block_t *prev = free_head;
-    memory_block_t *cur = free_head->next;
+    memory_block_t *prev = free_head->next;
+    memory_block_t *cur = prev->next;
     bool all_marked_free = true;
-    unsigned long long free_blocks_count = 0;
+    unsigned long long free_blocks_count = 1;
 
-    // identify if bit0 of the current block is marked
-    // as allocated, 1 if yes, 0 if no.
     while (cur != NULL) {
         char prev_mark = is_allocated(prev);
         char cur_mark = is_allocated(cur);
@@ -28,7 +26,7 @@ int check_heap() {
             // 2. Is every free block on the free list?
             free_blocks_count++;
         }
-        // check address order of prev and cur, and check.
+        // check address order of prev and cur, and check
         // 9. are there any contiguous free blocks that somehow escaped coalescing.
         if (check_subsequent_blocks(prev, cur)) {
             return EXIT_FAILURE;
@@ -42,6 +40,7 @@ int check_heap() {
         prev = cur;
         cur = cur->next;
     }
+
     // exexute 1. and 2. failure confirmation
     if (!all_marked_free || free_blocks_count != num_free_blocks) {
         return EXIT_FAILURE;
@@ -73,9 +72,8 @@ static bool check_subsequent_blocks(memory_block_t *prev, memory_block_t *cur) {
  * @return true if allocated blocks overlaps with each other, false otherwise. 
  */
 static bool check_for_overlap(memory_block_t *block) {
-
-    // TODO memory_block_t is just free blocks so like?? uh...
-    size_t size = get_size(block);
-
+    // TODO not sure how to acces allocated blocks yet
+    // TODO check if block overlaps with a allocated block
+    
     return 0;
 }
