@@ -139,8 +139,10 @@ memory_block_t *extend(size_t size) {
 memory_block_t *split(memory_block_t *block, size_t size) {
     allocate(block);
     // allocate space for new blocks
-    memory_block_t *new_allocated_block;
-    memory_block_t *new_free_block;
+    memory_block_t new_alloc;
+    memory_block_t new_free;
+    memory_block_t *new_allocated_block = &new_alloc;
+    memory_block_t *new_free_block = &new_free;
     // put split blocks in memory
     put_block(new_allocated_block, size, true);
     put_block(new_free_block, get_size(block) - size, false);
