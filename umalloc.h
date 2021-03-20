@@ -10,10 +10,13 @@
  * In the current design bit0 is the allocated bit
  * bits 1-3 are unused.
  * and the remaining 60 bit represent the size.
+ * The footer should be identical to the header.
  */
 typedef struct memory_block_struct {
     size_t block_size_alloc;
     struct memory_block_struct *next;
+    // footer
+    size_t block_size_alloc1;
 } memory_block_t;
 
 // Helper Functions, this may be editted if you change the signature in umalloc.c

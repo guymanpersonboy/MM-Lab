@@ -1,8 +1,11 @@
 #include "umalloc.h"
+#include "assert.h"
+static bool check_subsequent_blocks(memory_block_t *prev, memory_block_t *cur);
+static bool check_for_overlap(memory_block_t *block);
 
-//Place any variables needed here from umalloc.c as an extern.
+// Place any variables needed here from umalloc.c as an extern.
 extern memory_block_t *free_head;
-extern unsigned long long num_free_blocks;
+extern unsigned long num_free_blocks;
 
 /*
  * check_heap - used to check that the heap is still in a consistent state.
@@ -14,9 +17,12 @@ int check_heap() {
     memory_block_t *prev = free_head->next;
     memory_block_t *cur = prev->next;
     bool all_marked_free = true;
-    unsigned long long free_blocks_count = 1;
+    unsigned long free_blocks_count = 1;
 
+    assert(get_size(prev) % ALIGNMENT == 0);
     while (cur != NULL) {
+        // Check alignment
+        assert(get_size(cur) % ALIGNMENT == 0);
         char prev_mark = is_allocated(prev);
         char cur_mark = is_allocated(cur);
         // 1. Check if every block in the free list is marked as free
@@ -51,7 +57,7 @@ int check_heap() {
 
 /**
  * Check if subsequent free_blocks did not escape coalescing.
- * Check if if free blocks are in memory order.
+ * Check if free blocks are in memory order.
  * 
  * @param prev is the previous memory_block_t in the free list.
  * @param cur is the current memory_block_t in the free list.
