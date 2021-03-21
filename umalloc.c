@@ -3,7 +3,8 @@
 #include "ansicolors.h"
 #include <stdio.h>
 #include <assert.h>
-static void update_free_list(memory_block_t *block);
+static void update_free_list(memory_block_t *old_block,
+        memory_block_t *new_free_block);
 
 const char author[] = ANSI_BOLD ANSI_COLOR_RED "Christopher Carrasco cc66496" ANSI_RESET;
 
@@ -16,17 +17,15 @@ const char author[] = ANSI_BOLD ANSI_COLOR_RED "Christopher Carrasco cc66496" AN
 memory_block_t *free_head;
 // keeps count of the number of free blocks that should be in the free list
 unsigned long num_free_blocks;
-// used to help indicate if malloc was called on an allocated block
-static uint64_t magic_number = 0xbfda36e4132bbaed;
-// intially 4KB (4096 bytes)
-static size_t heap_size = PAGESIZE;
+// uinit will set to 4096 bytes
+static size_t heap_size = 0;
 
 /*
  * is_allocated - returns true if a block is marked as allocated.
  */
 bool is_allocated(memory_block_t *block) {
     assert(block != NULL);
-    return block->block_size_alloc & 0x1 && block->block_size_alloc1 & 0x1;
+    return block->block_size_alloc & 0x1;
 }
 
 /*
@@ -35,7 +34,6 @@ bool is_allocated(memory_block_t *block) {
 void allocate(memory_block_t *block) {
     assert(block != NULL);
     block->block_size_alloc |= 0x1;
-    block->block_size_alloc1 |= 0x1;
 }
 
 
@@ -45,7 +43,6 @@ void allocate(memory_block_t *block) {
 void deallocate(memory_block_t *block) {
     assert(block != NULL);
     block->block_size_alloc &= ~0x1;
-    block->block_size_alloc1 &= ~0x1;
 }
 
 /*
@@ -75,7 +72,6 @@ void put_block(memory_block_t *block, size_t size, bool alloc) {
     assert(alloc >> 1 == 0);
     block->block_size_alloc = size | alloc;
     block->next = NULL;
-    block->block_size_alloc1 = size | alloc;
 }
 
 /*
@@ -83,7 +79,7 @@ void put_block(memory_block_t *block, size_t size, bool alloc) {
  */
 void *get_payload(memory_block_t *block) {
     assert(block != NULL);
-    return (void*)(block + 1);
+    return (void *)(block + 1);
 }
 
 /*
@@ -103,15 +99,12 @@ memory_block_t *get_block(void *payload) {
  * find - finds a free block that can satisfy the umalloc request.
  */
 memory_block_t *find(size_t size) {
-    memory_block_t *result = free_head->next;
+    memory_block_t *result = free_head;
+    assert(free_head != NULL);
 
     // first fit
     while (result != NULL) {
-        // TODO debug
-        size_t debug = get_size(result);
-        printf("%zu\n", debug);
-
-        if (get_size(result) >= size) {
+        if (get_size(result) >= size + ALIGNMENT) {
             return result;
         }
 
@@ -141,69 +134,93 @@ memory_block_t *extend(size_t size) {
  * split - splits a given block in parts, one allocated, one free.
  */
 memory_block_t *split(memory_block_t *block, size_t size) {
-    // allocate the free block (internal fragmentation!)
-    allocate(block);
+    // no need to split
+    if (get_size(block) - size <= ALIGNMENT * 2)  {
+        return block;
+    }
 
-    // create new split free block
-    memory_block_t *new_free_block = block + (get_size(block) - size);
-    // put split free in memory
-    put_block(new_free_block, (get_size(block) - size), false);
     // put split allocated block in memory
+    if (size % ALIGNMENT != 0) {
+        size += ALIGNMENT - (size % ALIGNMENT);
+    }
+    size_t free_size = get_size(block) - size;
     put_block(block, size, true);
-    block->block_size_alloc1 = magic_number;
-
-    update_free_list(new_free_block);
+    // create new split free block by setting pointer to block address + size
+    memory_block_t *new_free_block = (memory_block_t *) ((char *) block + size);
+    if (free_size % ALIGNMENT != 0) {
+        free_size -= free_size % ALIGNMENT;
+    }
+    put_block(new_free_block, free_size, false);
+    update_free_list(block, new_free_block);
     
     return block;
 }
 
 /**
- * insert the given block into the front of the free list if it is a free block.
- * (have free head point to block).
+ * insert the given block into the free list by increasing address order.
  * 
- * @param block the free block to insert into the head of the free list.
+ * @param block the free block to insert into the free list.
  */
-static void update_free_list(memory_block_t *block) {
-    assert(block != NULL && !is_allocated(block));
-    memory_block_t *temp = free_head->next;
-    free_head->next = block;
-    block->next = temp;
+static void update_free_list(memory_block_t *old_block,
+        memory_block_t *new_free_block) {
+    assert(old_block != NULL);
+    assert(new_free_block != NULL && !is_allocated(new_free_block));
+    if (num_free_blocks == 1) {
+        free_head = new_free_block;
+        return;
+    }
+    memory_block_t *prev = free_head;
+    memory_block_t *cur = free_head;
+
+    while (cur != old_block) {
+        prev = cur;
+        cur = cur->next;
+    }
+    prev->next = new_free_block;
+    new_free_block->next = cur->next;
 }
 
 /*
  * coalesce - coalesces a free memory block with neighbors.
  * 
- * @return a pointer to the new free block
+ * @return a pointer to the new free block (same if no coalescing occured).
  */
-memory_block_t *coalesce(memory_block_t *block) {
+void coalesce(memory_block_t *block) {
     assert(block != NULL);
-    uint64_t block_size = get_size(block);
 
-    // the next block is a free block
-    if (block->next != NULL && block + get_size(block) == block->next && !is_allocated(block->next)) {
-        // coalesce
-        uint64_t next_size = get_size(block->next);
-        block->block_size_alloc = block_size + next_size;
-        block->block_size_alloc1 = block_size + next_size;
-        // set pointers
-        block->next = block->next->next;
+    memory_block_t *prev = free_head;
+    memory_block_t *cur = free_head;
+
+    while (cur != block && cur != NULL) {
+        prev = cur;
+        cur = cur->next;
     }
-    // the previous block is a free block
-    if (block - ALIGNMENT != NULL && get_size(block - ALIGNMENT) ==
-            get_size(block - get_size(block - ALIGNMENT)) && !is_allocated(block - ALIGNMENT)) {
-        // coalesce
-        memory_block_t *prev = block - get_size(block - ALIGNMENT);
-        uint64_t prev_size = get_size(prev);
+    assert(cur != NULL);
+    size_t prev_size = get_size(prev);
+    size_t cur_size = get_size(cur);
 
-        prev->block_size_alloc = prev_size + block_size;
-        prev->block_size_alloc1 = prev_size + block_size;
-        // set pointers
-        update_free_list(prev);
-
-        return prev;
+    // a free block after block
+    if (cur + cur_size == cur->next) {
+        size_t size = cur_size + get_size(cur->next);
+        if (size % ALIGNMENT != 0) {
+            size -= size % ALIGNMENT;
+        }
+        put_block(cur, size, false);
+        cur->next = cur->next->next;
+        cur->next->next = NULL;
+        num_free_blocks--;
     }
-
-    return block;
+    // a free block before block
+    if (prev + prev_size == cur) {
+        size_t size = prev_size + cur_size;
+        if (size % ALIGNMENT != 0) {
+            size -= size % ALIGNMENT;
+        }
+        put_block(prev, size, false);
+        prev->next = cur->next;
+        cur->next = NULL;
+        num_free_blocks--;
+    }
 }
 
 
@@ -213,13 +230,12 @@ memory_block_t *coalesce(memory_block_t *block) {
  * along with allocating initial memory.
  */
 int uinit() {
-    memory_block_t free_root;
-    free_head = &free_root;
-    put_block(free_head, 0, false);
-    free_head->next = extend(heap_size);
-    put_block(free_head->next, heap_size, false);
+    // put initial heap size
+    free_head = extend(PAGESIZE * 2);
+    put_block(free_head, heap_size, false);
     num_free_blocks = 1;
-    if (get_size(free_head) != 0 || get_size(free_head->next) != PAGESIZE) {
+    // check for errors
+    if (get_size(free_head) != PAGESIZE * 2 || heap_size != PAGESIZE * 2) {
         return -1;
     }
 
@@ -244,10 +260,25 @@ void ufree(void *ptr) {
     // ufree code here
     assert(ptr != NULL);
     memory_block_t *new_free_block = (memory_block_t *) ptr;
-    uint64_t number = new_free_block->block_size_alloc1;
 
-    if (number == magic_number) {
-        deallocate(new_free_block);
+    if (is_allocated(ptr)) {
+        put_block(new_free_block, get_size(new_free_block), false);
+
+        memory_block_t *cur = free_head;
+        // update free list
+        if (num_free_blocks == 2 && new_free_block < cur) {
+            memory_block_t *temp = free_head;
+            free_head = new_free_block;
+            new_free_block->next = temp;
+
+        } else {
+            while (cur->next != NULL && cur->next < new_free_block) {
+                cur = cur->next;
+            }
+            new_free_block->next = cur->next;
+            cur->next = new_free_block;
+        }
+        num_free_blocks++;
         // TODO consider deferred coalescing (slide 32)
         coalesce(new_free_block);
     }
