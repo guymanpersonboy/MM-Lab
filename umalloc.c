@@ -15,7 +15,6 @@ const char author[] = ANSI_BOLD ANSI_COLOR_RED "Christopher Carrasco cc66496" AN
 memory_block_t *free_head;
 // keeps count of the number of free blocks that should be in the free list
 unsigned long num_free_blocks;
-// uinit will set to 4096 bytes
 static size_t heap_size = 0;
 
 /*
@@ -118,18 +117,19 @@ memory_block_t *find(size_t size) {
 
     // first fit
     while (result->next != NULL) {
-        if (get_size(result) > size) {
+        if (get_size(result) == size || get_size(result) > size + ALIGNMENT) {
             return result;
         }
         assert(result != result->next);
         result = result->next;
     }
     // check last free block
-    if (get_size(result) > size) {
+    if (get_size(result) == size || get_size(result) > size + ALIGNMENT) {
         return result;
     }
     // need more room! set last free block next to extend result
     result->next = extend(heap_size + ALIGNMENT);
+    num_free_blocks++;
 
     return result->next;
 }
@@ -138,6 +138,9 @@ memory_block_t *find(size_t size) {
  * extend - extends the heap if more memory is required.
  */
 memory_block_t *extend(size_t size) {
+    if (size > PAGESIZE * ALIGNMENT) {
+        size = PAGESIZE * ALIGNMENT - ALIGNMENT;
+    }
     // creates new free block to represent new heap memory
     memory_block_t *result = (memory_block_t *) csbrk(size + ALIGNMENT);
     assert(result != NULL);
@@ -152,16 +155,11 @@ memory_block_t *extend(size_t size) {
  * split - splits a given block in parts, one allocated, one free.
  */
 memory_block_t *split(memory_block_t *block, size_t size) {
-    // no need to split
-    if (get_size(block) - size <= ALIGNMENT * 2)  {
-        return block;
-    }
     // put split allocated block in memory
-    if (size % ALIGNMENT != 0) {
-        size += ALIGNMENT - (size % ALIGNMENT);
-    }
     size_t free_size = get_size(block) - size;
+    memory_block_t *temp = block->next;
     put_block(block, size - ALIGNMENT, true);
+    block->next = temp;
     // create new split free block by setting pointer to block address + size
     memory_block_t *new_free_block = (memory_block_t *) ((char *) block + size);
     if (free_size % ALIGNMENT != 0) {
@@ -169,8 +167,9 @@ memory_block_t *split(memory_block_t *block, size_t size) {
     }
     put_block(new_free_block, free_size, false);
     update_list(block, new_free_block);
-
+    assert(get_size(block) == size - ALIGNMENT);
     // print_list("AFTER update_list");
+    assert(free_head->next == NULL || free_head < free_head->next);
     
     return get_payload(block);
 }
@@ -195,8 +194,13 @@ void update_list(memory_block_t *old_block,
         prev = cur;
         cur = cur->next;
     }
-    prev->next = new_free_block;
-    new_free_block->next = cur->next;
+    if (cur == free_head) {
+        free_head = new_free_block;
+        new_free_block->next = old_block->next;
+    } else {
+        prev->next = new_free_block;
+        new_free_block->next = cur->next;
+    }
 }
 
 /*
@@ -210,7 +214,7 @@ void coalesce(memory_block_t *block) {
     memory_block_t *prev = free_head;
     memory_block_t *cur = free_head;
 
-    while (cur != block && cur != NULL) {
+    while (cur != NULL && cur != block) {
         prev = cur;
         cur = cur->next;
     }
@@ -263,11 +267,39 @@ int uinit() {
  * umalloc -  allocates size bytes and returns a pointer to the allocated memory.
  */
 void *umalloc(size_t size) {
+    if (size % ALIGNMENT != 0) {
+        size += ALIGNMENT - (size % ALIGNMENT);
+    }
     // find free block to put it
-    memory_block_t *to_alloc = find(size + ALIGNMENT * 2);
+    memory_block_t *result = find(size);
+
+     // no need to split
+    if (get_size(result) - size < ALIGNMENT * 2)  {
+        assert(get_size(result) - size - ALIGNMENT >= 0);
+        memory_block_t *temp = result->next;
+        put_block(result, size, true);
+        result->next = temp;
+        if (num_free_blocks == 1) {
+            free_head = extend(heap_size);
+            return get_payload(result);
+        }
+        memory_block_t *prev = free_head;
+        if (prev == result) {
+            free_head = prev->next;
+        } else {
+            while (prev->next != NULL && prev->next != result) {
+                prev = prev->next;
+            }
+            prev->next = prev->next->next;
+        }
+        num_free_blocks--;
+        assert(free_head < free_head->next);
+
+        return get_payload(result);
+    }
     // split the free block into an allocated and free block
     // and return allocated payload address.
-    return split(to_alloc, size + ALIGNMENT);
+    return split(result, size + ALIGNMENT);
 }
 
 /*
@@ -284,7 +316,7 @@ void ufree(void *ptr) {
 
         memory_block_t *cur = free_head;
         // update free list
-        if (num_free_blocks == 2 && new_free < free_head) {
+        if (new_free < free_head) {
             memory_block_t *temp = free_head;
             free_head = new_free;
             new_free->next = temp;
@@ -300,4 +332,5 @@ void ufree(void *ptr) {
         coalesce(new_free);
         // print_list("AFTER coalesce");
     }
+    assert(free_head->next == NULL || free_head < free_head->next);
 }
