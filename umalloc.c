@@ -129,9 +129,14 @@ memory_block_t *find(size_t size) {
     }
     // need more room! set last free block next to extend result
     result->next = extend(heap_size + ALIGNMENT);
+    result = result->next;
+    while (get_size(result) < size) {
+        result->next = extend(heap_size + ALIGNMENT);
+        coalesce(result);
+    }    
     num_free_blocks++;
 
-    return result->next;
+    return result;
 }
 
 /*
@@ -206,7 +211,6 @@ void update_list(memory_block_t *old_block,
 /*
  * coalesce - coalesces a free memory block with neighbors.
  * 
- * @return a pointer to the new free block (same if no coalescing occured).
  */
 void coalesce(memory_block_t *block) {
     assert(block != NULL);
@@ -293,7 +297,7 @@ void *umalloc(size_t size) {
             prev->next = prev->next->next;
         }
         num_free_blocks--;
-        assert(free_head < free_head->next);
+        assert(free_head->next == NULL || free_head < free_head->next);
 
         return get_payload(result);
     }
