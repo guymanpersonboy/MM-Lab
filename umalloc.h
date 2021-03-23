@@ -1,5 +1,7 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #define ALIGNMENT 16 /* The alignment of all payloads returned by umalloc */
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~(ALIGNMENT-1))
@@ -25,13 +27,11 @@ memory_block_t *get_next(memory_block_t *block);
 void put_block(memory_block_t *block, size_t size, bool alloc);
 void *get_payload(memory_block_t *block);
 memory_block_t *get_block(void *payload);
-void print_list(const char location[]);
 
 memory_block_t *find(size_t size);
 memory_block_t *extend(size_t size);
 memory_block_t *split(memory_block_t *block, size_t size);
-void update_list(memory_block_t *old_block,
-        memory_block_t *new_free_block);
+void update_list(memory_block_t *old_block, memory_block_t *new_free_block);
 void coalesce(memory_block_t *block);
 
 
