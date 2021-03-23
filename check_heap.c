@@ -1,8 +1,12 @@
 #include "umalloc.h"
+#include "assert.h"
+#include "stdio.h"
+static bool check_subsequent_blocks(memory_block_t *prev, memory_block_t *cur);
+static bool check_for_overlap(memory_block_t *block);
 
-//Place any variables needed here from umalloc.c as an extern.
+// Place any variables needed here from umalloc.c as an extern.
 extern memory_block_t *free_head;
-extern unsigned long long num_free_blocks;
+extern unsigned long num_free_blocks;
 
 /*
  * check_heap - used to check that the heap is still in a consistent state.
@@ -11,28 +15,34 @@ extern unsigned long long num_free_blocks;
  * return code. Asserts are also a useful tool here.
  */
 int check_heap() {
-    memory_block_t *prev = free_head->next;
+    memory_block_t *prev = free_head;
+    assert(free_head != NULL);
     memory_block_t *cur = prev->next;
     bool all_marked_free = true;
-    unsigned long long free_blocks_count = 1;
+    unsigned long free_blocks_count = 1;
 
+    assert(get_size(prev) % ALIGNMENT == 0);
     while (cur != NULL) {
+        assert(cur != cur->next);
+        // Check alignment
+        assert(get_size(cur) % ALIGNMENT == 0);
         char prev_mark = is_allocated(prev);
         char cur_mark = is_allocated(cur);
-        // 1. check if every block in the free list is marked as free
+        // 1. Check if every block in the free list is marked as free
         if (prev_mark || cur_mark) {
             all_marked_free = false;
         } else  {
             // 2. Is every free block on the free list?
             free_blocks_count++;
         }
-        // check address order of prev and cur, and check
-        // 9. are there any contiguous free blocks that somehow escaped coalescing.
+        // 9. Are there any contiguous free blocks that somehow escaped coalescing?
+        // 10. Is the free list in memory order?
         if (check_subsequent_blocks(prev, cur)) {
+            puts("check_subsequent_blocks(prev, cur)");
             return EXIT_FAILURE;
         }
-        // 6. do any allocated blocks overlap with each other?
-        // 7. do any allocated blocks overlap with a free block?
+        // 6. Do any allocated blocks overlap with each other?
+        // 7. Do any allocated blocks overlap with a free block?
         if (check_for_overlap(prev)) {
             return EXIT_FAILURE;
         }
@@ -43,6 +53,11 @@ int check_heap() {
 
     // exexute 1. and 2. failure confirmation
     if (!all_marked_free || free_blocks_count != num_free_blocks) {
+        puts("!all_marked_free || free_blocks_count != num_free_blocks");
+        printf("%d, %d\n", !all_marked_free, free_blocks_count != num_free_blocks);
+        printf("exp: %ld == act: %ld\n", free_blocks_count, num_free_blocks);
+        print_list("check_heap");
+
         return EXIT_FAILURE;
     }
 
@@ -50,22 +65,27 @@ int check_heap() {
 }
 
 /**
- * Check if subsequent free_blocks in the free list are in
- * increasing order of their address in memory, and
- * they did not escape coalescing.
+ * Check if subsequent free_blocks did not escape coalescing.
+ * Check if free blocks are in memory order.
  * 
  * @param prev is the previous memory_block_t in the free list.
  * @param cur is the current memory_block_t in the free list.
  * @return true if blocks not in increasing order of memory or escaped coalescing.
  */
 static bool check_subsequent_blocks(memory_block_t *prev, memory_block_t *cur) {
-    size_t prev_size = get_size(prev);
-    return prev >= cur || prev + prev_size == cur;
+    size_t prev_size = get_size(prev) + ALIGNMENT;
+    if ((memory_block_t *)((char *)prev + prev_size) == cur || prev >= cur) {
+        printf("%d, %d ", (memory_block_t *)((char *)prev + prev_size) == cur, prev >= cur);
+        printf("%p >= %p\n", prev, cur);
+        print_list("check_heap");
+        return true;
+    }
+    return false;
 }
 
 /**
- * Check if any allocated blocks overlap with each other. Check if any allocated
- * blocks overlap with a free block.
+ * Check if any allocated blocks overlap with each other.
+ * Check if any allocated blocks overlap with a free block.
  * 
  * @param prev is the previous memory_block_t in the free list.
  * @param cur is the current memory_block_t in the free list.

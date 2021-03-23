@@ -9,7 +9,7 @@ err_handler.o: err_handler.c err_handler.h
 csbrk_tracked.o: csbrk.c csbrk.h
 	$(CC) $(CFLAGS) -DTRACK_CSBRK -o csbrk_tracked.o -c csbrk.c
 umalloc.o: umalloc.c umalloc.h
-check_heap.o: umalloc.c umalloc.h
+check_heap.o: check_heap.c check_heap.h
 
 runner: runner.c csbrk_tracked.o umalloc.o check_heap.o err_handler.o support.o
 	$(CC) $(CFLAGS) -o runner runner.c  umalloc.h csbrk_tracked.o umalloc.o check_heap.o err_handler.o support.o

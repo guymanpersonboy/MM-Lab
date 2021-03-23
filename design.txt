@@ -1,8 +1,8 @@
-FIll out this document with the intended design. This design is not final, and can
+Fill out this document with the intended design. This design is not final, and can
 be updated if you run into problems completing the project
 
 How will the heap be structured?
- - A best fit placement
+ - A first fit placement
  - double each csbrk call
 
 How will umalloc be implemented?
