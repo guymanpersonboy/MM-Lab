@@ -165,8 +165,9 @@ memory_block_t *split(memory_block_t *block, size_t size) {
  * @param old_block the split block to be allocated
  * @param new_free_block the split free block
  */
-void update_list(memory_block_t *old_block,
-        memory_block_t *new_free_block) {
+void update_list(memory_block_t *old_block, memory_block_t *new_free_block) {
+    assert(is_allocated(old_block));
+    assert(!is_allocated(new_free_block));
     if (num_free_blocks == 1) {
         free_head = new_free_block;
         return;
