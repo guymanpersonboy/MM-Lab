@@ -3,23 +3,23 @@ be updated if you run into problems completing the project
 
 How will the heap be structured?
  - A first fit placement
- - double each csbrk call
+ - double each csbrk call until reaching max request value for csbrk.
 
 How will umalloc be implemented?
- - Splitting
+ - Splitting if necessary
 
 How will ufree be implemented?
  - Immediate coalescing
 
 What checks are putting into check_heap?
-1. check if every block in the free list is marked as free?
-2. Is every free block on the free list?
-6. Do any allocated blocks overlap with each other?
-7. Do any allocated blocks overlap with a free block?
+1. check if every block in the free list is marked as free
+2. Is every free block on the free list
+6. Do any allocated blocks overlap with each other
+7. Do any allocated blocks overlap with a free block
 TODO check 9.
 
 Are you making any changes to the memory_block_t struct?
- - Not sure yet
+ - No
 
 Once this project is finsihed, these answers will finalized in the write up.
 

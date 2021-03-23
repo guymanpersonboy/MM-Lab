@@ -1,8 +1,6 @@
 #include "umalloc.h"
 #include "csbrk.h"
 #include "ansicolors.h"
-#include <stdio.h>
-#include <assert.h>
 
 const char author[] = ANSI_BOLD ANSI_COLOR_RED "Christopher Carrasco cc66496" ANSI_RESET;
 
@@ -88,22 +86,6 @@ memory_block_t *get_block(void *payload) {
 }
 
 /*
- * print the size of each free block in the free list.
- * for debugging purposes.
- */
-void print_list(const char location[]) {
-    memory_block_t *cur = free_head;
-    printf("DEBUG: %s\n", location);
-    printf("DEBUG: ");
-    while (cur != NULL) {
-        printf("%p: %zu, ", cur, get_size(cur));
-        assert(cur != cur->next);
-        cur = cur->next;
-    }
-    printf("heap size: %zu\n", heap_size);
-}
-
-/*
  * The following are helper functions that can be implemented to assist in your
  * design, but they are not required. 
  */
@@ -143,7 +125,7 @@ memory_block_t *find(size_t size) {
  * extend - extends the heap if more memory is required.
  */
 memory_block_t *extend(size_t size) {
-    if (size > PAGESIZE * ALIGNMENT) {
+    if (size > PAGESIZE * ALIGNMENT - ALIGNMENT) {
         size = PAGESIZE * ALIGNMENT - ALIGNMENT;
     }
     // creates new free block to represent new heap memory
@@ -173,7 +155,6 @@ memory_block_t *split(memory_block_t *block, size_t size) {
     put_block(new_free_block, free_size, false);
     update_list(block, new_free_block);
     assert(get_size(block) == size - ALIGNMENT);
-    // print_list("AFTER update_list");
     assert(free_head->next == NULL || free_head < free_head->next);
     
     return get_payload(block);
@@ -195,7 +176,7 @@ void update_list(memory_block_t *old_block,
     memory_block_t *prev = free_head;
     memory_block_t *cur = free_head;
 
-    while (cur != old_block) {
+    while (cur != NULL && cur != old_block) {
         prev = cur;
         cur = cur->next;
     }
@@ -260,7 +241,7 @@ int uinit() {
     free_head = extend(PAGESIZE * 2);
     num_free_blocks = 1;
     // check for errors
-    if (get_size(free_head) != PAGESIZE * 2 || heap_size != PAGESIZE * 2) {
+    if (free_head == NULL || get_size(free_head) != PAGESIZE * 2 || heap_size != PAGESIZE * 2) {
         return -1;
     }
 
@@ -331,10 +312,7 @@ void ufree(void *ptr) {
             new_free->next = cur->next;
             cur->next = new_free;
         }
-        // TODO consider deferred coalescing (slide 32)
-        // print_list("before coalesce");
         coalesce(new_free);
-        // print_list("AFTER coalesce");
     }
     assert(free_head->next == NULL || free_head < free_head->next);
 }

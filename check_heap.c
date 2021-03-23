@@ -1,8 +1,6 @@
 #include "umalloc.h"
-#include "assert.h"
-#include "stdio.h"
 static bool check_subsequent_blocks(memory_block_t *prev, memory_block_t *cur);
-static bool check_for_overlap(memory_block_t *block);
+static void print_list(const char location[]);
 
 // Place any variables needed here from umalloc.c as an extern.
 extern memory_block_t *free_head;
@@ -16,6 +14,7 @@ extern unsigned long num_free_blocks;
  */
 int check_heap() {
     memory_block_t *prev = free_head;
+    // Check for NULL free list
     assert(free_head != NULL);
     memory_block_t *cur = prev->next;
     bool all_marked_free = true;
@@ -23,27 +22,21 @@ int check_heap() {
 
     assert(get_size(prev) % ALIGNMENT == 0);
     while (cur != NULL) {
+        // Check for infinite loop
         assert(cur != cur->next);
-        // Check alignment
+        // Check alignment of free list
         assert(get_size(cur) % ALIGNMENT == 0);
-        char prev_mark = is_allocated(prev);
-        char cur_mark = is_allocated(cur);
-        // 1. Check if every block in the free list is marked as free
-        if (prev_mark || cur_mark) {
+        // Check if every block in the free list is marked as unallocated
+        if (is_allocated(prev) || is_allocated(cur)) {
             all_marked_free = false;
-        } else  {
-            // 2. Is every free block on the free list?
+        }
+        else {
+            // Is every free block in the free list
             free_blocks_count++;
         }
-        // 9. Are there any contiguous free blocks that somehow escaped coalescing?
-        // 10. Is the free list in memory order?
+        // Are there any contiguous free blocks that escaped coalescing
+        // Is the free list in increasing address order
         if (check_subsequent_blocks(prev, cur)) {
-            puts("check_subsequent_blocks(prev, cur)");
-            return EXIT_FAILURE;
-        }
-        // 6. Do any allocated blocks overlap with each other?
-        // 7. Do any allocated blocks overlap with a free block?
-        if (check_for_overlap(prev)) {
             return EXIT_FAILURE;
         }
 
@@ -51,7 +44,7 @@ int check_heap() {
         cur = cur->next;
     }
 
-    // exexute 1. and 2. failure confirmation
+    // confirm checks
     if (!all_marked_free || free_blocks_count != num_free_blocks) {
         puts("!all_marked_free || free_blocks_count != num_free_blocks");
         printf("%d, %d\n", !all_marked_free, free_blocks_count != num_free_blocks);
@@ -75,25 +68,27 @@ int check_heap() {
 static bool check_subsequent_blocks(memory_block_t *prev, memory_block_t *cur) {
     size_t prev_size = get_size(prev) + ALIGNMENT;
     if ((memory_block_t *)((char *)prev + prev_size) == cur || prev >= cur) {
+        puts("check_subsequent_blocks(prev, cur)");
         printf("%d, %d ", (memory_block_t *)((char *)prev + prev_size) == cur, prev >= cur);
         printf("%p >= %p\n", prev, cur);
         print_list("check_heap");
+
         return true;
     }
     return false;
 }
 
-/**
- * Check if any allocated blocks overlap with each other.
- * Check if any allocated blocks overlap with a free block.
- * 
- * @param prev is the previous memory_block_t in the free list.
- * @param cur is the current memory_block_t in the free list.
- * @return true if allocated blocks overlaps with each other, false otherwise. 
+/*
+ * print the address and size of each free block in the free list.
+ * for debugging purposes.
  */
-static bool check_for_overlap(memory_block_t *block) {
-    // TODO not sure how to acces allocated blocks yet
-    // TODO check if block overlaps with a allocated block
-    
-    return 0;
+static void print_list(const char location[]) {
+    memory_block_t *cur = free_head;
+    printf("DEBUG: %s\n", location);
+    printf("DEBUG: ");
+    while (cur != NULL) {
+        printf("%p: %zu, ", cur, get_size(cur));
+        assert(cur != cur->next);
+        cur = cur->next;
+    }
 }
