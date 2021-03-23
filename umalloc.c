@@ -100,14 +100,14 @@ memory_block_t *find(size_t size) {
 
     // first fit
     while (result->next != NULL) {
-        if (get_size(result) == size || get_size(result) > size + ALIGNMENT) {
+        if (get_size(result) >= size) {
             return result;
         }
         assert(result != result->next);
         result = result->next;
     }
     // check last free block
-    if (get_size(result) == size || get_size(result) > size + ALIGNMENT) {
+    if (get_size(result) >= size) {
         return result;
     }
     // need more room! set last free block next to extend result
@@ -195,7 +195,7 @@ void coalesce(memory_block_t *block) {
     assert(block != NULL);
     memory_block_t *prev = free_head;
     memory_block_t *cur = free_head;
-
+    // find the previous block which may need coalescing
     while (cur != NULL && cur != block) {
         prev = cur;
         cur = cur->next;

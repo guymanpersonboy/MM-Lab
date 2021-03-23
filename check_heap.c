@@ -1,6 +1,6 @@
 #include "umalloc.h"
 static bool check_subsequent_blocks(memory_block_t *prev, memory_block_t *cur);
-static void print_list(const char location[]);
+static void print_list();
 
 // Place any variables needed here from umalloc.c as an extern.
 extern memory_block_t *free_head;
@@ -48,7 +48,7 @@ int check_heap() {
         puts("!all_marked_free || free_blocks_count != num_free_blocks");
         printf("%d, %d\n", !all_marked_free, free_blocks_count != num_free_blocks);
         printf("exp: %ld == act: %ld\n", free_blocks_count, num_free_blocks);
-        print_list("check_heap");
+        print_list();
 
         return EXIT_FAILURE;
     }
@@ -70,7 +70,7 @@ static bool check_subsequent_blocks(memory_block_t *prev, memory_block_t *cur) {
         puts("check_subsequent_blocks(prev, cur)");
         printf("%d, %d ", (memory_block_t *)((char *)prev + prev_size) == cur, prev >= cur);
         printf("%p >= %p\n", prev, cur);
-        print_list("check_heap");
+        print_list();
 
         return true;
     }
@@ -81,9 +81,8 @@ static bool check_subsequent_blocks(memory_block_t *prev, memory_block_t *cur) {
  * print the address and size of each free block in the free list.
  * for debugging purposes.
  */
-static void print_list(const char location[]) {
+static void print_list() {
     memory_block_t *cur = free_head;
-    printf("DEBUG: %s\n", location);
     printf("DEBUG: ");
     while (cur != NULL) {
         printf("%p: %zu, ", cur, get_size(cur));
