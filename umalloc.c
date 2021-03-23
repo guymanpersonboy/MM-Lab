@@ -32,7 +32,6 @@ void allocate(memory_block_t *block) {
     block->block_size_alloc |= 0x1;
 }
 
-
 /*
  * deallocate - marks a block as unallocated.
  */
