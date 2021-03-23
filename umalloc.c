@@ -100,14 +100,14 @@ memory_block_t *find(size_t size) {
 
     // first fit
     while (result->next != NULL) {
-        if (get_size(result) >= size) {
+        if (get_size(result) == size || get_size(result) > size + ALIGNMENT) {
             return result;
         }
         assert(result != result->next);
         result = result->next;
     }
     // check last free block
-    if (get_size(result) >= size) {
+    if (get_size(result) == size || get_size(result) > size + ALIGNMENT) {
         return result;
     }
     // need more room! set last free block next to extend result
@@ -153,20 +153,20 @@ memory_block_t *split(memory_block_t *block, size_t size) {
     }
     put_block(new_free_block, free_size, false);
     update_list(block, new_free_block);
+    assert(get_size(block) == size - ALIGNMENT);
     assert(free_head->next == NULL || free_head < free_head->next);
     
     return get_payload(block);
 }
 
 /**
- * insert the given block into the free list by increasing address order.
+ * remove the old_block from the free list and insert the new_free_block. 
  * 
- * @param block the free block to insert into the free list.
+ * @param old_block the split block to be allocated
+ * @param new_free_block the split free block
  */
 void update_list(memory_block_t *old_block,
         memory_block_t *new_free_block) {
-    assert(is_allocated(old_block));
-    assert(!is_allocated(new_free_block));
     if (num_free_blocks == 1) {
         free_head = new_free_block;
         return;
@@ -208,9 +208,8 @@ void coalesce(memory_block_t *block) {
         if (cur_size % ALIGNMENT != 0) {
             cur_size -= cur_size % ALIGNMENT;
         }
-        memory_block_t *temp = cur->next->next;
-        put_block(cur, cur_size, false);
-        cur->next = temp;
+        cur->block_size_alloc = cur_size | false;
+        cur->next = cur->next->next;
         num_free_blocks--;
     }
     // a free block before block
@@ -219,9 +218,8 @@ void coalesce(memory_block_t *block) {
         if (prev_size % ALIGNMENT != 0) {
             prev_size -= prev_size % ALIGNMENT;
         }
-        memory_block_t *temp = cur->next;
-        put_block(prev, prev_size, false);
-        prev->next = temp;
+        prev->block_size_alloc = prev_size | false;
+        prev->next = cur->next;
         num_free_blocks--;
     }
 }
@@ -260,7 +258,7 @@ void *umalloc(size_t size) {
         result->block_size_alloc = size | true;
         // found block is only one left, extend heap
         if (num_free_blocks == 1) {
-            free_head = extend(heap_size + ALIGNMENT);
+            free_head = extend(heap_size);
             return get_payload(result);
         }
         memory_block_t *prev = free_head;
