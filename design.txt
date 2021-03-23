@@ -1,25 +1,23 @@
 Fill out this document with the intended design. This design is not final, and can
 be updated if you run into problems completing the project
 
+Christopher Carrasco
+Section 52305
+MM Writeup
 How will the heap be structured?
- - A first fit placement
- - double each csbrk call until reaching max request value for csbrk.
-
+Initially, the heap is created by calling csbrk with a request for 8192B of memory, plus a hidden 16B for the header of the initial free block representing the heap. The size of the heap is doubled for future calls of csbrk until the size requested is larger than PAGESIZE * ALIGNMENT bytes, from here on out we simply begin to request PAGESIZE * ALIGNMENT bytes of memory. The explicit free list is maintained in increasing address order of each memory_block_t. The memory_block_struct was not changed in my implementation.
 How will umalloc be implemented?
- - Splitting if necessary
-
+The umalloc function operates using first-fit placement, so the first free block with size greater than or equal to the requested space to allocate is used. The size requested is padded with extra bytes of space after the payload to enforce alignment. The extra 16 bytes for the header is not considered when saving the size of the payload/free block in block_size_alloc. A free block is split into two blocks, one for allocated and the other for the remaining free space, if the size of the free block minus the size requested (plus padding) is greater than or equal to ALIGNMENT * 2 (32 bytes). Otherwise, the free block to be allocated is used without splitting.
 How will ufree be implemented?
- - Immediate coalescing
-
+The block is checked for the allocated bit0 to be 1, otherwise, it is ignored. The confirmed allocated block is then deallocated and put into the free list in increasing address order. The new free block then coalesces with any free block located immediately before or after it in memory.
 What checks are putting into check_heap?
-1. check if every block in the free list is marked as free
-2. Is every free block on the free list
-6. Do any allocated blocks overlap with each other
-7. Do any allocated blocks overlap with a free block
-TODO check 9.
+Check for NULL free list
+Check for infinite loop
+Check alignment of free list
+Check if every block in the free list is marked as unallocated
+Is every free block in the free list, checked by keeping an expected count throughout the program and comparing it with the count of every block in the free list.
+Are there any contiguous free blocks that escaped coalescing, checked by adding size of block to address and checking if its equal to the next block in the list.
+Is the free list in increasing address order
 
-Are you making any changes to the memory_block_t struct?
- - No
-
-Once this project is finsihed, these answers will finalized in the write up.
+Once this project is finished, these answers will finalized in the write up.
 

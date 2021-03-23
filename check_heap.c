@@ -29,8 +29,7 @@ int check_heap() {
         // Check if every block in the free list is marked as unallocated
         if (is_allocated(prev) || is_allocated(cur)) {
             all_marked_free = false;
-        }
-        else {
+        } else {
             // Is every free block in the free list
             free_blocks_count++;
         }
